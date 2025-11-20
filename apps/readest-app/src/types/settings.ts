@@ -2,6 +2,7 @@ import { CustomTheme } from '@/styles/themes';
 import { CustomFont } from '@/styles/fonts';
 import { CustomTexture } from '@/styles/textures';
 import { HighlightColor, HighlightStyle, ViewSettings } from './book';
+import { S3Config } from './s3config';
 
 export type ThemeType = 'light' | 'dark' | 'auto';
 export type LibraryViewModeType = 'grid' | 'list';
@@ -66,6 +67,7 @@ export interface SystemSettings {
   customTextures: CustomTexture[];
 
   kosync: KOSyncSettings;
+  s3Config?: S3Config;
 
   lastSyncedAtBooks: number;
   lastSyncedAtConfigs: number;

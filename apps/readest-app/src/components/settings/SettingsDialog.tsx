@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
@@ -7,7 +7,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { RiFontSize } from 'react-icons/ri';
 import { RiDashboardLine, RiTranslate } from 'react-icons/ri';
 import { VscSymbolColor } from 'react-icons/vsc';
-import { PiDotsThreeVerticalBold } from 'react-icons/pi';
+import { PiDotsThreeVerticalBold, PiGear } from 'react-icons/pi';
 import { LiaHandPointerSolid } from 'react-icons/lia';
 import { IoAccessibilityOutline } from 'react-icons/io5';
 import { MdArrowBackIosNew, MdArrowForwardIos, MdClose } from 'react-icons/md';
@@ -21,8 +21,9 @@ import DialogMenu from './DialogMenu';
 import ControlPanel from './ControlPanel';
 import LangPanel from './LangPanel';
 import MiscPanel from './MiscPanel';
+import S3ConfigPanel from './S3ConfigPanel';
 
-export type SettingsPanelType = 'Font' | 'Layout' | 'Color' | 'Control' | 'Language' | 'Custom';
+export type SettingsPanelType = 'Font' | 'Layout' | 'Color' | 'Control' | 'Language' | 'Custom' | 'S3';
 export type SettingsPanelPanelProp = {
   bookKey: string;
   onRegisterReset: (resetFn: () => void) => void;
@@ -74,6 +75,11 @@ const SettingsDialog: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       icon: IoAccessibilityOutline,
       label: _('Custom'),
     },
+    {
+      tab: 'S3',
+      icon: PiGear,
+      label: _('S3 Storage'),
+    },
   ] as TabConfig[];
 
   const [activePanel, setActivePanel] = useState<SettingsPanelType>(() => {
@@ -99,18 +105,32 @@ const SettingsDialog: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     Control: null,
     Language: null,
     Custom: null,
+    S3: null,
   });
 
-  const registerResetFunction = (panel: SettingsPanelType, resetFn: () => void) => {
-    setResetFunctions((prev) => ({ ...prev, [panel]: resetFn }));
-  };
+  // 使用useRef来存储最新的重置函数，避免因函数实例变化导致的无限循环
+  const resetFunctionRefs = useRef<Record<SettingsPanelType, (() => void) | null>>({
+    Font: null,
+    Layout: null,
+    Color: null,
+    Control: null,
+    Language: null,
+    Custom: null,
+    S3: null,
+  });
 
-  const handleResetCurrentPanel = () => {
-    const resetFn = resetFunctions[activePanel];
+  const registerResetFunction = useCallback((panel: SettingsPanelType, resetFn: () => void) => {
+    // 只更新ref中的函数引用，避免触发状态更新
+    resetFunctionRefs.current[panel] = resetFn;
+  }, []);
+
+  // 更新处理重置当前面板的函数
+  const handleResetCurrentPanel = useCallback(() => {
+    const resetFn = resetFunctionRefs.current[activePanel];
     if (resetFn) {
       resetFn();
     }
-  };
+  }, [activePanel]);
 
   const handleClose = () => {
     setSettingsDialogOpen(false);
@@ -282,6 +302,11 @@ const SettingsDialog: React.FC<{ bookKey: string }> = ({ bookKey }) => {
           <MiscPanel
             bookKey={bookKey}
             onRegisterReset={(fn) => registerResetFunction('Custom', fn)}
+          />
+        )}
+        {activePanel === 'S3' && (
+          <S3ConfigPanel
+            onRegisterReset={(fn) => registerResetFunction('S3', fn)}
           />
         )}
       </div>
