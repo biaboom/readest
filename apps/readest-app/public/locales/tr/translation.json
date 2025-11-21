@@ -8,7 +8,6 @@
   "Auto Mode": "Otomatik Mod",
   "Behavior": "Davranış",
   "Book": "Kitap",
-  "Book Cover": "Kitap Kapağı",
   "Bookmark": "Yer İmi",
   "Cancel": "İptal",
   "Chapter": "Bölüm",
@@ -655,5 +654,7 @@
   "Updating email ...": "E-posta güncelleniyor ...",
   "Update email": "E-postayı güncelle",
   "Current email": "Mevcut e-posta",
-  "Update Email": "E-postayı güncelle"
+  "Update Email": "E-postayı güncelle",
+  "All": "Tümü",
+  "Unable to open book": "Kitap açılamıyor"
 }

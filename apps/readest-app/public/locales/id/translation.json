@@ -8,7 +8,6 @@
   "Auto Mode": "Mode Otomatis",
   "Behavior": "Perilaku",
   "Book": "Buku",
-  "Book Cover": "Sampul Buku",
   "Bookmark": "Penanda",
   "Cancel": "Batal",
   "Chapter": "Bab",
@@ -651,5 +650,7 @@
   "Updating email ...": "Memperbarui email ...",
   "Update email": "Perbarui email",
   "Current email": "Email saat ini",
-  "Update Email": "Perbarui email"
+  "Update Email": "Perbarui email",
+  "All": "Semua",
+  "Unable to open book": "Tidak dapat membuka buku"
 }

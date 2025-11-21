@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MdDelete, MdOpenInNew, MdOutlineCancel, MdInfoOutline } from 'react-icons/md';
 import { LuFolderPlus } from 'react-icons/lu';
 import { PiPlus } from 'react-icons/pi';
-import { Book, BooksGroup } from '@/types/book';
+import { Book } from '@/types/book';
 import { LibraryCoverFitType, LibraryViewModeType } from '@/types/settings';
 import { useEnv } from '@/context/EnvContext';
 import { useThemeStore } from '@/store/themeStore';
@@ -66,8 +66,8 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showGroupingModal, setShowGroupingModal] = useState(false);
   const [queryTerm, setQueryTerm] = useState<string | null>(null);
-  const [navBooksGroup, setNavBooksGroup] = useState<BooksGroup | null>(null);
   const [importBookUrl] = useState(searchParams?.get('url') || '');
+  const [groupId, setGroupId] = useState(searchParams?.get('group') || '');
   const [viewMode, setViewMode] = useState(searchParams?.get('view') || settings.libraryViewMode);
   const [sortBy, setSortBy] = useState(searchParams?.get('sort') || settings.librarySortBy);
   const [sortOrder, setSortOrder] = useState(
@@ -78,6 +78,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
 
   const { setCurrentBookshelf, setLibrary } = useLibraryStore();
   const { setSelectedBooks, getSelectedBooks, toggleSelectedBook } = useLibraryStore();
+  const { getGroupName } = useLibraryStore();
 
   const bookFilter = useMemo(() => createBookFilter(queryTerm), [queryTerm]);
   const uiLanguage = localStorage?.getItem('i18nextLng') || '';
@@ -87,9 +88,14 @@ const Bookshelf: React.FC<BookshelfProps> = ({
     return queryTerm ? libraryBooks.filter((book) => bookFilter(book)) : libraryBooks;
   }, [libraryBooks, queryTerm, bookFilter]);
 
-  const allBookshelfItems = useMemo(() => {
-    return generateBookshelfItems(filteredBooks);
-  }, [filteredBooks]);
+  const currentBookshelfItems = useMemo(() => {
+    const groupName = getGroupName(groupId) || '';
+    if (groupId && !groupName) {
+      return [];
+    }
+    const items = generateBookshelfItems(filteredBooks, groupName);
+    return items;
+  }, [filteredBooks, groupId, getGroupName]);
 
   const autofocusRef = useAutoFocus<HTMLDivElement>();
 
@@ -113,12 +119,8 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   }, [importBookUrl, appService]);
 
   useEffect(() => {
-    if (navBooksGroup) {
-      setCurrentBookshelf(navBooksGroup.books);
-    } else {
-      setCurrentBookshelf(allBookshelfItems);
-    }
-  }, [allBookshelfItems, navBooksGroup, setCurrentBookshelf]);
+    setCurrentBookshelf(currentBookshelfItems);
+  }, [currentBookshelfItems, setCurrentBookshelf]);
 
   useEffect(() => {
     const group = searchParams?.get('group') || '';
@@ -127,58 +129,74 @@ const Bookshelf: React.FC<BookshelfProps> = ({
     const sort = searchParams?.get('sort') || settings.librarySortBy;
     const order = searchParams?.get('order') || (settings.librarySortAscending ? 'asc' : 'desc');
     const cover = searchParams?.get('cover') || settings.libraryCoverFit;
-    const params = new URLSearchParams(searchParams?.toString());
-    if (query) {
-      params.set('q', query);
-      setQueryTerm(query);
-    } else {
-      params.delete('q');
-      setQueryTerm(null);
-    }
-    if (sort) {
-      params.set('sort', sort);
-      setSortBy(sort);
-    } else {
-      params.delete('sort');
-    }
-    if (order) {
-      params.set('order', order);
-      setSortOrder(order);
-    } else {
-      params.delete('order');
-    }
-    if (view) {
-      params.set('view', view);
-      setViewMode(view);
-    } else {
-      params.delete('view');
-    }
+
+    setGroupId(group);
+    setQueryTerm(query || null);
+    setViewMode(view);
+    setSortBy(sort);
+    setSortOrder(order);
     setCoverFit(cover);
-    if (cover === 'crop') {
-      params.delete('cover');
-    }
-    if (sort === 'updated' && order === 'desc' && view === 'grid') {
-      params.delete('sort');
-      params.delete('order');
-      params.delete('view');
-    }
-    if (group) {
-      const booksGroup = allBookshelfItems.find(
-        (item) => 'name' in item && item.id === group,
-      ) as BooksGroup;
-      if (booksGroup) {
-        setNavBooksGroup(booksGroup);
-        params.set('group', group);
-      } else {
-        params.delete('group');
-        navigateToLibrary(router, `${params.toString()}`);
+  }, [searchParams, settings]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams?.toString());
+    let hasChanges = false;
+
+    if (queryTerm) {
+      if (params.get('q') !== queryTerm) {
+        params.set('q', queryTerm);
+        hasChanges = true;
       }
     } else {
-      setNavBooksGroup(null);
-      params.delete('group');
-      navigateToLibrary(router, `${params.toString()}`);
+      if (params.has('q')) {
+        params.delete('q');
+        hasChanges = true;
+      }
     }
-  }, [router, settings, searchParams, allBookshelfItems, showGroupingModal]);
+
+    if (sortBy !== 'updated' && params.get('sort') !== sortBy) {
+      params.set('sort', sortBy);
+      hasChanges = true;
+    }
+
+    if (sortBy === 'updated') {
+      params.delete('sort');
+      hasChanges = true;
+    }
+
+    if (sortOrder === 'desc') {
+      params.delete('order');
+      hasChanges = true;
+    }
+
+    if (coverFit === 'crop') {
+      params.delete('cover');
+      hasChanges = true;
+    }
+
+    if (viewMode === 'grid') {
+      params.delete('view');
+      hasChanges = true;
+    }
+
+    if (groupId) {
+      if (currentBookshelfItems.length === 0) {
+        params.delete('group');
+        hasChanges = true;
+      } else if (params.get('group') !== groupId) {
+        params.set('group', groupId);
+        hasChanges = true;
+      }
+    } else if (params.has('group')) {
+      params.delete('group');
+      hasChanges = true;
+    }
+
+    if (hasChanges) {
+      navigateToLibrary(router, params.toString());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryTerm, sortBy, sortOrder, viewMode, coverFit, groupId, currentBookshelfItems.length]);
 
   const toggleSelection = useCallback(
     (id: string) => {
@@ -252,7 +270,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
 
   const sortedBookshelfItems = useMemo(() => {
     const sortOrderMultiplier = sortOrder === 'asc' ? 1 : -1;
-    const currentBookshelfItems = navBooksGroup ? navBooksGroup.books : allBookshelfItems;
     return currentBookshelfItems.sort((a, b) => {
       if (sortBy === 'updated') {
         return (
@@ -268,13 +285,15 @@ const Bookshelf: React.FC<BookshelfProps> = ({
         return 0;
       }
     });
-  }, [sortOrder, sortBy, uiLanguage, navBooksGroup, allBookshelfItems, bookSorter]);
+  }, [sortOrder, sortBy, uiLanguage, currentBookshelfItems, bookSorter]);
 
   useEffect(() => {
     if (isSelectMode) {
       setShowSelectModeActions(true);
       if (isSelectAll) {
-        setSelectedBooks(filteredBooks.map((item) => item.hash));
+        setSelectedBooks(
+          currentBookshelfItems.map((item) => ('hash' in item ? item.hash : item.id)),
+        );
       } else if (isSelectNone) {
         setSelectedBooks([]);
       }
@@ -283,7 +302,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
       setShowSelectModeActions(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSelectMode, isSelectAll, isSelectNone, filteredBooks]);
+  }, [isSelectMode, isSelectAll, isSelectNone, currentBookshelfItems]);
 
   useEffect(() => {
     eventDispatcher.on('delete-books', handleDeleteBooksIntent);
@@ -330,8 +349,8 @@ const Bookshelf: React.FC<BookshelfProps> = ({
             }
           />
         ))}
-        {viewMode === 'grid' && !navBooksGroup && allBookshelfItems.length > 0 && (
-          <div className={clsx('mx-0 my-4 sm:mx-4')}>
+        {viewMode === 'grid' && currentBookshelfItems.length > 0 && (
+          <div className={clsx('mx-0 my-2 sm:mx-4 sm:my-4')}>
             <button
               aria-label={_('Import Books')}
               className={clsx(
@@ -424,6 +443,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
           <GroupingModal
             libraryBooks={libraryBooks}
             selectedBooks={selectedBooks}
+            parentGroupName={getGroupName(groupId) || ''}
             onCancel={() => {
               setShowGroupingModal(false);
               setShowSelectModeActions(true);

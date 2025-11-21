@@ -23,6 +23,8 @@ import { useKOSync } from '../hooks/useKOSync';
 import {
   applyFixedlayoutStyles,
   applyImageStyle,
+  applyScrollModeClass,
+  applyTableStyle,
   applyThemeModeClass,
   applyTranslationStyle,
   getStyles,
@@ -190,7 +192,9 @@ const FoliateViewer: React.FC<{
       }
 
       applyImageStyle(detail.doc);
+      applyTableStyle(detail.doc);
       applyThemeModeClass(detail.doc, isDarkMode);
+      applyScrollModeClass(detail.doc, viewSettings.scrolled || false);
       keepTextAlignment(detail.doc);
       removeTabIndex(detail.doc);
 
@@ -412,10 +416,17 @@ const FoliateViewer: React.FC<{
           applyFixedlayoutStyles(doc, viewSettings);
         }
         applyThemeModeClass(doc, isDarkMode);
+        applyScrollModeClass(doc, viewSettings.scrolled || false);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeCode, isDarkMode, viewSettings?.overrideColor, viewSettings?.invertImgColorInDark]);
+  }, [
+    themeCode,
+    isDarkMode,
+    viewSettings?.scrolled,
+    viewSettings?.overrideColor,
+    viewSettings?.invertImgColorInDark,
+  ]);
 
   useEffect(() => {
     const mountCustomFonts = async () => {
