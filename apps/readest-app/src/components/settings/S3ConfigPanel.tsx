@@ -118,17 +118,39 @@ const S3ConfigPanel: React.FC<S3ConfigPanelProps> = ({ onRegisterReset }) => {
   const handleTestConnection = async () => {
     setIsTesting(true);
     setTestResult(null);
-    try {
-      // In a real implementation, this would test the connection to the S3 service
-      // For now, we'll just simulate a successful test
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      // This is where you would actually test the connection
-      // const result = await testS3Connection(config);
+    
+    // Check required fields
+    if (!config.accessKeyId || !config.secretAccessKey || !config.bucket) {
       setTestResult({
-        success: true,
-        message: _('Connection test successful'),
+        success: false,
+        message: _('Please fill in all required fields: Access Key ID, Secret Access Key, and Bucket Name'),
       });
+      setIsTesting(false);
+      return;
+    }
+    
+    try {
+      // Test the connection via backend API
+      const response = await fetch('/api/storage/test-s3', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setTestResult({
+          success: true,
+          message: _('Connection test successful'),
+        });
+      } else {
+        throw new Error(result.message || 'Unknown error occurred');
+      }
     } catch (error: any) {
+      console.error('S3 connection test failed:', error);
       setTestResult({
         success: false,
         message: _('Connection test failed: {{error}}', {
